@@ -24,6 +24,7 @@ type Campaign struct {
 	TemplateId    int64     `json:"-"`
 	Template      Template  `json:"template"`
 	PageId        int64     `json:"-"`
+	Page          Page      `json:"page"`
 	Status        string    `json:"status"`
 	Results       []Result  `json:"results,omitempty"`
 	Groups        []Group   `json:"groups,omitempty"`
@@ -108,6 +109,9 @@ var ErrGroupNotSpecified = errors.New("No groups specified")
 // ErrTemplateNotSpecified indicates there was no template given by the user
 var ErrTemplateNotSpecified = errors.New("No email template specified")
 
+// ErrPageNotSpecified indicates a landing page was not provided for the campaign
+var ErrPageNotSpecified = errors.New("No landing page specified")
+
 // ErrSMTPNotSpecified indicates a sending profile was not provided for the campaign
 var ErrSMTPNotSpecified = errors.New("No sending profile specified")
 
@@ -141,6 +145,8 @@ func (c *Campaign) Validate() error {
 		return ErrGroupNotSpecified
 	case c.Template.Name == "":
 		return ErrTemplateNotSpecified
+	case c.Page.Name == "":
+		return ErrPageNotSpecified
 	case c.SMTP.Name == "":
 		return ErrSMTPNotSpecified
 	case !c.SendByDate.IsZero() && !c.LaunchDate.IsZero() && c.SendByDate.Before(c.LaunchDate):
@@ -220,6 +226,14 @@ func (c *Campaign) getDetails() error {
 	if err != nil && err != gorm.ErrRecordNotFound {
 		log.Warn(err)
 		return err
+	}
+	err = db.Table("pages").Where("id=?", c.PageId).Find(&c.Page).Error
+	if err != nil {
+		if err != gorm.ErrRecordNotFound {
+			return err
+		}
+		c.Page = Page{Name: "[Deleted]"}
+		log.Warnf("%s: page not found for campaign", err)
 	}
 	err = db.Table("smtp").Where("id=?", c.SMTPId).Find(&c.SMTP).Error
 	if err != nil {

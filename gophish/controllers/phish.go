@@ -210,22 +210,114 @@ func (ps *PhishingServer) ReportHandler(w http.ResponseWriter, r *http.Request) 
 // PhishHandler handles incoming client connections and registers the associated actions performed
 // (such as clicked link, etc.)
 func (ps *PhishingServer) PhishHandler(w http.ResponseWriter, r *http.Request) {
-    r, err := setupContext(r)
-    if err != nil {
-        // Log the error if it wasn't something we can safely ignore
-        if err != ErrInvalidRequest && err != ErrCampaignComplete {
-            log.Error(err)
-        }
-        customNotFound(w, r)
-        return
-    }
-    w.Header().Set("X-Server", config.ServerName) // Useful for checking if this is a GoPhish server (e.g. for campaign reporting plugins)
-    customNotFound(w, r)
+	r, err := setupContext(r)
+	if err != nil {
+		// Log the error if it wasn't something we can safely ignore
+		if err != ErrInvalidRequest && err != ErrCampaignComplete {
+			log.Error(err)
+		}
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("X-Server", config.ServerName) // Useful for checking if this is a GoPhish server (e.g. for campaign reporting plugins)
+	var ptx models.PhishingTemplateContext
+	// Check for a preview
+	if preview, ok := ctx.Get(r, "result").(models.EmailRequest); ok {
+		ptx, err = models.NewPhishingTemplateContext(&preview, preview.BaseRecipient, preview.RId)
+		if err != nil {
+			log.Error(err)
+			http.NotFound(w, r)
+			return
+		}
+		p, err := models.GetPage(preview.PageId, preview.UserId)
+		if err != nil {
+			log.Error(err)
+			http.NotFound(w, r)
+			return
+		}
+		renderPhishResponse(w, r, ptx, p)
+		return
+	}
+	rs := ctx.Get(r, "result").(models.Result)
+	rid := ctx.Get(r, "rid").(string)
+	c := ctx.Get(r, "campaign").(models.Campaign)
+	d := ctx.Get(r, "details").(models.EventDetails)
+
+	// Check for a transparency request
+	if strings.HasSuffix(rid, TransparencySuffix) {
+		ps.TransparencyHandler(w, r)
+		return
+	}
+
+	p, err := models.GetPage(c.PageId, c.UserId)
+	if err != nil {
+		log.Error(err)
+		http.NotFound(w, r)
+		return
+	}
+	switch {
+	case r.Method == "GET":
+		err = rs.HandleClickedLink(d)
+		if err != nil {
+			log.Error(err)
+		}
+	case r.Method == "POST":
+		err = rs.HandleFormSubmit(d)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+	ptx, err = models.NewPhishingTemplateContext(&c, rs.BaseRecipient, rs.RId)
+	if err != nil {
+		log.Error(err)
+		http.NotFound(w, r)
+	}
+	renderPhishResponse(w, r, ptx, p)
+}
+
+// renderPhishResponse handles rendering the correct response to the phishing
+// connection. This usually involves writing out the page HTML or redirecting
+// the user to the correct URL.
+func renderPhishResponse(w http.ResponseWriter, r *http.Request, ptx models.PhishingTemplateContext, p models.Page) {
+	// If the request was a form submit and a redirect URL was specified, we
+	// should send the user to that URL
+	if r.Method == "POST" {
+		if p.RedirectURL != "" {
+			redirectURL, err := models.ExecuteTemplate(p.RedirectURL, ptx)
+			if err != nil {
+				log.Error(err)
+				http.NotFound(w, r)
+				return
+			}
+			http.Redirect(w, r, redirectURL, http.StatusFound)
+			return
+		}
+	}
+	// Otherwise, we just need to write out the templated HTML
+	html, err := models.ExecuteTemplate(p.HTML, ptx)
+	if err != nil {
+		log.Error(err)
+		http.NotFound(w, r)
+		return
+	}
+	w.Write([]byte(html))
 }
 
 // RobotsHandler prevents search engines, etc. from indexing phishing materials
 func (ps *PhishingServer) RobotsHandler(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintln(w, "User-agent: *\nDisallow: /")
+	fmt.Fprintln(w, "User-agent: *\nDisallow: /")
+}
+
+// TransparencyHandler returns a TransparencyResponse for the provided result
+// and campaign.
+func (ps *PhishingServer) TransparencyHandler(w http.ResponseWriter, r *http.Request) {
+	rs := ctx.Get(r, "result").(models.Result)
+	tr := &TransparencyResponse{
+		Server:         config.ServerName,
+		SendDate:       rs.SendDate,
+		ContactAddress: ps.contactAddress,
+	}
+	api.JSONResponse(w, tr, http.StatusOK)
 }
 
 // setupContext handles some of the administrative work around receiving a new
