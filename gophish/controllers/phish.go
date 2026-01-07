@@ -12,15 +12,16 @@ import (
     "strings"
     "time"
 
-    "github.com/NYTimes/gziphandler"
-    "github.com/gophish/gophish/config"
-    ctx "github.com/gophish/gophish/context"
-    log "github.com/gophish/gophish/logger"
-    "github.com/gophish/gophish/models"
-    "github.com/gophish/gophish/util"
-    "github.com/gorilla/handlers"
-    "github.com/gorilla/mux"
-    "github.com/jordan-wright/unindexed"
+	"github.com/NYTimes/gziphandler"
+	"github.com/gophish/gophish/config"
+	ctx "github.com/gophish/gophish/context"
+	"github.com/gophish/gophish/controllers/api"
+	log "github.com/gophish/gophish/logger"
+	"github.com/gophish/gophish/models"
+	"github.com/gophish/gophish/util"
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
+	"github.com/jordan-wright/unindexed"
 )
 
 // ErrInvalidRequest is thrown when a request with an invalid structure is
@@ -30,6 +31,14 @@ var ErrInvalidRequest = errors.New("Invalid request")
 // ErrCampaignComplete is thrown when an event is received for a campaign that
 // has already been marked as complete.
 var ErrCampaignComplete = errors.New("Event received on completed campaign")
+
+// TransparencyResponse is the JSON response provided when a third-party
+// makes a request to the transparency handler.
+type TransparencyResponse struct {
+	Server         string    `json:"server"`
+	ContactAddress string    `json:"contact_address"`
+	SendDate       time.Time `json:"send_date"`
+}
 
 // TransparencySuffix (when appended to a valid result ID), will cause Gophish
 // to return a transparency response.
