@@ -44,9 +44,6 @@ function launch() {
                     },
                     url: $("#url").val(),
                     qrsize: $("#qrsize").val(),
-                    page: {
-                        name: $("#page").select2("data")[0].text
-                    },
                     smtp: {
                         name: $("#profile").select2("data")[0].text
                     },
@@ -92,9 +89,6 @@ function sendTestEmail() {
         email: $("input[name=to_email]").val(),
         position: $("input[name=to_position]").val(),
         url: $("#url").val(),
-        page: {
-            name: $("#page").select2("data")[0].text
-        },
         smtp: {
             name: $("#profile").select2("data")[0].text
         }
@@ -119,7 +113,6 @@ function dismiss() {
     $("#modal\\.flashes").empty();
     $("#name").val("");
     $("#template").val("").change();
-    $("#page").val("").change();
     $("#url").val("");
     $("#profile").val("").change();
     $("#users").val("").change();
@@ -203,27 +196,6 @@ function setupOptions() {
                 }
             }
         });
-    api.pages.get()
-        .success(function (pages) {
-            if (pages.length == 0) {
-                modalError("No pages found!")
-                return false
-            } else {
-                var page_s2 = $.map(pages, function (obj) {
-                    obj.text = obj.name
-                    return obj
-                });
-                var page_select = $("#page.form-control")
-                page_select.select2({
-                    placeholder: "Select a Landing Page",
-                    data: page_s2,
-                });
-                if (pages.length === 1) {
-                    page_select.val(page_s2[0].id)
-                    page_select.trigger('change.select2')
-                }
-            }
-        });
     api.SMTP.get()
         .success(function (profiles) {
             if (profiles.length == 0) {
@@ -258,7 +230,6 @@ function copy(idx) {
         .success(function (campaign) {
             $("#name").val("Copy of " + campaign.name)
             if (!campaign.template.id) {
-                $("#template").val("").change();
                 $("#template").select2({
                     placeholder: campaign.template.name
                 });
@@ -266,17 +237,7 @@ function copy(idx) {
                 $("#template").val(campaign.template.id.toString());
                 $("#template").trigger("change.select2")
             }
-            if (!campaign.page.id) {
-                $("#page").val("").change();
-                $("#page").select2({
-                    placeholder: campaign.page.name
-                });
-            } else {
-                $("#page").val(campaign.page.id.toString());
-                $("#page").trigger("change.select2")
-            }
             if (!campaign.smtp.id) {
-                $("#profile").val("").change();
                 $("#profile").select2({
                     placeholder: campaign.smtp.name
                 });
