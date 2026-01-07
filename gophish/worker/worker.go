@@ -2,8 +2,6 @@ package worker
 
 import (
 	"context"
-	//"fmt"
-
 	"time"
 
 	log "github.com/gophish/gophish/logger"
@@ -104,7 +102,7 @@ func (w *DefaultWorker) processCampaigns(t time.Time) error {
 // Start launches the worker to poll the database every minute for any pending maillogs
 // that need to be processed.
 func (w *DefaultWorker) Start() {
-	log.Info("Background Email Worker Started Successfully - Waiting for Campaigns")
+	log.Info("Background Worker Started Successfully - Waiting for Campaigns")
 	go w.mailer.Start(context.Background())
 	for t := range time.Tick(1 * time.Minute) {
 		err := w.processCampaigns(t)
