@@ -6,7 +6,6 @@ import (
 	mid "github.com/gophish/gophish/middleware"
 	"github.com/gophish/gophish/middleware/ratelimit"
 	"github.com/gophish/gophish/models"
-	"github.com/gophish/gophish/smsworker"
 	"github.com/gophish/gophish/worker"
 	"github.com/gorilla/mux"
 )
@@ -19,10 +18,10 @@ type ServerOption func(*Server)
 // stopped. Rather, it's meant to be used as an http.Handler in the
 // AdminServer.
 type Server struct {
-	handler   http.Handler
-	worker    worker.Worker
+	handler http.Handler
+	worker  worker.Worker
 	smsworker smsworker.Worker
-	limiter   *ratelimit.PostLimiter
+	limiter *ratelimit.PostLimiter
 }
 
 // NewServer returns a new instance of the API handler with the provided
@@ -32,9 +31,9 @@ func NewServer(options ...ServerOption) *Server {
 	defaultSmsWorker, _ := smsworker.New()
 	defaultLimiter := ratelimit.NewPostLimiter()
 	as := &Server{
-		worker:    defaultWorker,
+		worker:  defaultWorker,
 		smsworker: defaultSmsWorker,
-		limiter:   defaultLimiter,
+		limiter: defaultLimiter,
 	}
 	for _, opt := range options {
 		opt(as)
@@ -85,10 +84,14 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/groups/{id:[0-9]+}/summary", as.GroupSummary)
 	router.HandleFunc("/templates/", as.Templates)
 	router.HandleFunc("/templates/{id:[0-9]+}", as.Template)
+	router.HandleFunc("/pages/", as.Pages)
+	router.HandleFunc("/pages/{id:[0-9]+}", as.Page)
 	router.HandleFunc("/smtp/", as.SendingProfiles)
 	router.HandleFunc("/smtp/{id:[0-9]+}", as.SendingProfile)
 	router.HandleFunc("/sms/", as.SMSProfiles)
 	router.HandleFunc("/sms/{id:[0-9]+}", as.SMSProfile)
+	router.HandleFunc("/pages/", as.Pages)
+	router.HandleFunc("/pages/{id:[0-9]+}", as.Page)
 	router.HandleFunc("/users/", mid.Use(as.Users, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/users/{id:[0-9]+}", mid.Use(as.User))
 	router.HandleFunc("/util/send_test_email", as.SendTestEmail)
