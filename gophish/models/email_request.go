@@ -5,6 +5,7 @@ import (
 	"net/mail"
 
 	"github.com/gophish/gomail"
+	"github.com/gophish/gophish/config"
 	log "github.com/gophish/gophish/logger"
 	"github.com/gophish/gophish/mailer"
 )
@@ -20,6 +21,7 @@ type EmailRequest struct {
 	Id          int64        `json:"-"`
 	Template    Template     `json:"template"`
 	TemplateId  int64        `json:"-"`
+	Page        Page         `json:"page"`
 	PageId      int64        `json:"-"`
 	SMTP        SMTP         `json:"smtp"`
 	URL         string       `json:"url"`
@@ -38,10 +40,6 @@ func (s *EmailRequest) getBaseURL() string {
 
 func (s *EmailRequest) getFromAddress() string {
 	return s.FromAddress
-}
-
-func (s *EmailRequest) getQRSize() string {
-	return ""
 }
 
 // Validate ensures the SendTestEmailRequest structure
@@ -118,6 +116,12 @@ func (s *EmailRequest) Generate(msg *gomail.Message) error {
 		return err
 	}
 	s.URL = url
+
+	// Add the transparency headers
+	msg.SetHeader("X-Mailer", config.ServerName)
+	if conf.ContactAddress != "" {
+		msg.SetHeader("X-Gophish-Contact", conf.ContactAddress)
+	}
 
 	// Parse the customHeader templates
 	for _, header := range s.SMTP.Headers {
